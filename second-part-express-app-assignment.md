@@ -178,13 +178,27 @@ app.use("/tasks", authMiddleware, taskRouter);
 
 That solves the first problem.  The authMiddleware gets called before any of the task routes, and it makes sure that no one can get to those routes without being logged on.  These are called "protected routes" because they require authentication.
 
-Let's go on to problem 2.  Within your tasks controller, `loggedOnUser` is a reference to an object, and you want to have a list of tasks within that object.  You didn't create that list when you stored the user object.  In taskController.js, you need a function called `create(req, res)`. And inside that, you do:
+Let's go on to problem 2.  Within your tasks controller, `loggedOnUser` is a reference to an object, and you want to have a list of tasks within that object.  Each should have a unique ID  You didn't create that list when you stored the user object. First, create a little counter function in taskController.js, as follows:
+
+```js
+const taskCounter = (() => {
+  let lastTaskNumber = 0;
+  return () => {
+    lastTaskNumber += 1;
+    return lastTaskNumber;
+  }
+})();
+```
+
+This is a closure.  You are sometimes asked to write a closure in job interviews.  we can use this to generate a unique ID for each task -- but of course, restart the server and you start over.
+
+In taskController.js, you need a function called `create(req, res)`. And inside that, you do:
 
 ```js
 if (loggedOnUser.tasklist === undefined) {
     loggedOnUser.tasklist = [];
 };
-req.body.id = tasklist.length;
+req.body.id = taskCounter();
 const newTask = {...req.body}; // make a copy
 loggedOnUser.tasklist.push(newTask);
 res.json(newTask);  // send it back, with an id attached
@@ -209,7 +223,7 @@ if (task) { // was it found?
 }
 ```
 
-So, write the remaining methods, set up the routes, and test everything with Postman.  To test the operations that use a task ID, you would do get all of the tasks for the currently logged on user, so you know what the IDs are.  Postman will show you what is sent back.  Then you can show or patch or delete one of them.
+So, write the remaining methods, set up the routes, and test everything with Postman.  To test the operations that use a task ID, you would get all of the tasks for the currently logged on user, so you know what the IDs are.  Postman will show you what is sent back.  Then you can show or patch or delete one of them.
 
 ### **The Automated Tests**
 
