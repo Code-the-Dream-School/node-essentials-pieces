@@ -30,13 +30,21 @@ const storedUsers = [];
 
 let loggedOnUser = null;
 
-module.exports = {storedUsers, loggedOnUser};
+const setLoggedOnUser = (user) => {
+  loggedOnUser = user;
+};
+
+const getLoggedOnUser = () => {
+  return loggedOnUser;
+};
+
+module.exports = { storedUsers, getLoggedOnUser, setLoggedOnUser };
 ```
 
 Now, in app.js, above your app.post(), add this statement:
 
 ```js
-const { storedUsers, loggedOnUser } = require("./util/memoryStore");
+const { storedUsers, setLoggedOnUser } = require("./util/memoryStore");
 ```
 
 And then, change the app.post() as follows:
@@ -45,7 +53,7 @@ And then, change the app.post() as follows:
 app.post("/user", (req, res)=>{
     const newUser = {...req.body}; // this makes a copy
     storedUsers.push(newUser);
-    loggedOnUser = newUser;  // After the registration step, the user is set to logged on.
+    setLoggedOnUser(newUser);  // After the registration step, the user is set to logged on.
     delete req.body.password;
     res.status(201).json(req.body);
 });
@@ -186,15 +194,16 @@ const taskCounter = (() => {
   return () => {
     lastTaskNumber += 1;
     return lastTaskNumber;
-  }
+  };
 })();
 ```
 
-This is a closure.  You are sometimes asked to write a closure in job interviews.  we can use this to generate a unique ID for each task -- but of course, restart the server and you start over.
+This is a closure.  You are sometimes asked to write a closure in job interviews.  We can use this to generate a unique ID for each task -- but of course, restart the server and you start over.
 
 In taskController.js, you need a function called `create(req, res)`. And inside that, you do:
 
 ```js
+const loggedOnUser = getLoggedOnUser();
 if (loggedOnUser.tasklist === undefined) {
     loggedOnUser.tasklist = [];
 };
@@ -204,26 +213,35 @@ loggedOnUser.tasklist.push(newTask);
 res.json(newTask);  // send it back, with an id attached
 ```
 
+Be a little careful about loggedOnUser.  You know that the logged on user can change.  So, you need to get the logged on user each time you need to refer to it.  On the other hand, once you have loggedOnUser, you can mutate that object it all you want.
+
 Now for problem 3.  When you have a route defined with a colon `:`, that has a special meaning.  The string following the colon is the name of a variable, and the value of the variable is in req.params.  For the routes above, you would have `req.params.id`.  Now, be careful: this is a string, not an integer, so you need to convert it to an integer before you go looking for the right task.  Here's how you could do it in a deleteTask(req,res) function in your task controller:
 
 ```js
-let task = null;
 const taskToFind = parseInt(req.params.id);
+const loggedOnUser = getLoggedOnUser();
 if (loggedOnUser.tasklist) {  // if we have a list
-  const taskIndex = loggedOnUser.tasklist.find((task)=> task.id === taskToFind);
+  const taskIndex = loggedOnUser.tasklist.indexOf((task)=> task.id === taskToFind);
   if (taskIndex != -1) {
-    task = loggedOnUser.tasklist[taskIndex];
+    const task = loggedOnUser.tasklist[taskIndex];
     loggedOnUser.tasklist.splice(taskIndex, 1); // do the delete
+    return res.json(task); // return the entry just deleted.  The default status code, OK, is returned.
   }
 };
-if (task) { // was it found?
-  res.status(StatusCodes.OK).json(task); // return the entry just deleted
-} else {
-  res.sendStatus(StatusCodes.NOT_FOUND); // else it's a 404.
-}
+res.sendStatus(StatusCodes.NOT_FOUND); // else it's a 404.
 ```
 
-So, write the remaining methods, set up the routes, and test everything with Postman.  To test the operations that use a task ID, you would get all of the tasks for the currently logged on user, so you know what the IDs are.  Postman will show you what is sent back.  Then you can show or patch or delete one of them.
+So, write the remaining methods, set up the routes, and test everything with Postman.  To test the operations that use a task ID, you would all of the tasks for the currently logged on user, so you know what the IDs are.  Postman will show you what is sent back.  Then you can show or patch or delete one of them.
+
+One hint about the update function in the task router.  You are doing a patch.  You don't want a complete replacement of the task object.  This means you use all the values from the body, but you leave any attributes of the task that aren't in the new body unchanged.  There are two (2) spiffy ways to do this:
+
+```js
+const newTask = { ...currentTask, ...req.body}
+// or
+Object.assign(currentTask, req.body)
+```
+
+The advantage of the second one is the current task is in a list, and you'd probably want to update it in place.  These are good tricks to remember.  But the database will do the same for you when you call an update.
 
 ### **The Automated Tests**
 
