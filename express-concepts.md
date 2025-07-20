@@ -84,7 +84,7 @@ const customerMiddleware = require("./middleware/customerAuth)
 app.use("/customers", customerAuth, customerRouter)
 ```
 
-The customerMiddleware function might check if the customer is logged in, return a 401 if not, but if so call next, so that processing would pass to the customerRouter.
+The customerMiddleware function might check if the customer is logged in.  If not, it could send a response with a 401 status code, possibly with an error message in the body.  If a customer is logged in, the middleware functiom might add additional information to the req object.  It would call next, so that processing would pass to the customerRouter.
 
 For each request sent to the server, there must be exactly one response.  If no response is sent, a user might be waiting at the browser for a timeout.  If several responses are sent for one request, Express reports an error instead of sending the second one.
 
@@ -92,7 +92,27 @@ For each request sent to the server, there must be exactly one response.  If no 
 
 Request handlers may retrieve data and send it back to the caller.  Or, they may store, modify, or delete data, and report the success or failure to the caller.  Or, they may manage the session state of the caller, as would happen, for example, with a logon.  The data accessed by request handlers may be in a database, or it may be accessed via some network request.  When sending the response, a request handler might send plain text, HTML, or JSON, or any number of other content types.  A request handler must either send a response or call the error handler to send a response.  Otherwise the request from the caller will wait until timeout.
 
-Route handlers and middleware frequently do asynchronous operations, often for database access.  While the async request is being processed, other requests may come to the server, and they are dispatched as usual.  Route handlers and middleware may be declared as async, so that the async/await style of programming can be used.  These functions don't return a value.  Instead, they send a response, or pass control to the route handler that sends the response.
+Route handlers and middleware frequently do asynchronous operations, often for database access.  While the async request is being processed, other requests may come to the server, and they are dispatched as usual.  Route handlers and middleware may be declared as async, so that the async/await style of programming can be used.  These functions don't return a value of interest.
+
+## **Middleware Functions, Route Handlers, and Error Handling**
+
+Let's sum up common characteristics of middleware functions and response handlers.  Let's also
+
+1. They are each called with the parameters req and res, or possibly req, res, and next.  They may be declared as async functions.
+
+2. Once they are called, these functions do processing based on the information in the req object: method, path, path parameters, query parameters, headers, cookies, the body.  Every request has a method and path, but the other request attributes may or may not be present.
+
+3. These functions must do one of the following, or the request times out:
+
+- Send a response.
+- Call next().
+- Throw an error.
+
+Even route handlers sometimes call next().  In these cases they call `next(error` to pass the error to the error handler.  Middleware functions often call next() withouut parameters, to call the next middleware in the chain or the route handler for the request, but they might call `next(error)` in some cases.
+
+4. If `next(error)` is called or an error is thrown, the error handler is called and passed the error.  In Express 5, this happens even if the error is thrown while an async middleware function or route handler is waiting on an asynchronous operation and that error is not caught in the middleware function or route handler.  **However, please note:** Middleware functions and route handlers sometimes call functions that have callbacks.  They may send responses or call next() from with the callback.  That works fine.  But they must **never** throw an error from within a callback.  That would crash the server.  They must call `next(error)` instead.
+
+## **Parsing the Body of a JSON Request**
 
 One very common piece of middleware is the following:
 
@@ -100,7 +120,7 @@ One very common piece of middleware is the following:
 app.use(express.json())
 ```
 
-This middleware parses the body of a request that has content-type "application/json".  The resulting object is stored in req.body.
+This middleware parses the body of a request that has content-type "application/json".  The resulting object is stored in req.body.  There are other body parsers to be used in other circumstances, for example to catch data that is posted from an HTML form.
 
 ### **The req and res Objects**
 
@@ -108,7 +128,7 @@ You can access the following elements of the req:
 
 req.method
 req.path
-req.params  HTML path parameters.  When you configure a route with a route handler, you can tell Express where these are in the URL.
+req.params  HTML path parameters, if any.  When you configure a route with a route handler, you can tell Express where these are in the URL.
 req.query  query parameters of the request, if any
 req.body    The body of the request, if any
 req.host    The host that this Express app is running on
@@ -140,11 +160,11 @@ res.send()    This sends plain text data, or perhaps HTML.
 
 ### **Answers**
 
-1. A route handler always get the req and res objects.  The req object contains information from the request, perhaps with additional attributes added by middleware functions.  The res object has methods including res.send() and res.json() that enable the route handler to respond to the request.
+1. A route handler always gets the req and res objects.  The req object contains information from the request, perhaps with additional attributes added by middleware functions.  The res object has methods including res.send() and res.json() that enable the route handler to respond to the request.
 
-2. A route hander must either respond to the request with res.send() or res.json(), or call the error handler with next(error) or throw error.
+2. A route hander must either respond to the request with res.send() or res.json(), or call the error handler with next(error), or throw the error.
 
-3. A middleware function may not respond to the request.  Instead it may call next() to pass control to the next handler or middleware function in the chain.  It must either respond to the request or call next, or perhaps throw an error.
+3. A middleware function may or may not respond to the request.  Instead it may call next() to pass control to the next handler or middleware function in the chain.  It must either respond to the request or call next, or perhaps throw an error.
 
 4. If you do an await in a route handler, the caller for the request has to wait.  You might be waiting, for example, on a response from the database.  You need the database response before you can send the HTTP response to the caller.  On the other hand, other callers don't have to wait, unless they make a request that ends up at an await statement.
 
