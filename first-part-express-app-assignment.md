@@ -144,3 +144,27 @@ Try this URL: `http://localhost:3000/nonsense`.  Again you get an error -- a 404
 
 The middleware you have created so far is a little unusual, because in these there is no call to next().  Often middleware is, as you might expect, in the middle.  A middleware function runs for some or all routes before the request handlers for those routes, but then, instead of calling res.send() or an equivalent, it calls next() to pass the work on.  Note: There are two ways to call next().  If you call next() with no parameters, Express calls the next route handler in the chain.  Sometimes the only one left is the not-found handler.  But if you call next(e), e should be an Error object.  In this case the error handler is called, and the error is passed to it.
 
+## **Exiting Cleanly**
+
+Your Express program opens a port.  You need to be sure that port is closed when the program exits.  If there are other open connections, such as database connections, they must also be cleaned up.  If not, you may find that you program becomes a zombie process, and that the port you had been listening on is still tied up.  This is especially important when you are running a debugger or an automated test.  Here is some code to put at the bottom of app.js to ensure a clean exit.
+
+```js
+let isShuttingDown = false;
+async function shutdown() {
+  if (isShuttingDown) return;
+  isShuttingDown = true;
+  console.log('Shutting down gracefully...');
+  // Here add code as needed to disconnect gracefully from the database
+};
+
+process.on('SIGINT', shutdown);
+process.on('SIGTERM', shutdown);
+process.on('uncaughtException', (err) => {
+  console.error('Uncaught exception:', err);
+  shutdown();
+});
+process.on('unhandledRejection', (reason) => {
+  console.error('Unhandled rejection:', reason);
+  shutdown();
+});
+```
