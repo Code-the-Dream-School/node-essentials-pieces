@@ -4,11 +4,13 @@ Before you start, be sure you are in the node-homework folder. Also, create a gi
 
 ### **Setup**
 
-You need Express.  Make sure it is installed in your node-homework repository:
+You need Express.  It is not part of the Node base, so  sure it is installed in your node-homework repository:
 
 ```bash
 npm install express
 ```
+
+Actually, your node-homework repository was set up at the start to have all the packages you need -- but if you were setting up your own project, you'd have to do these npm installs.
 
 ### **A Minimal App**
 
@@ -42,11 +44,11 @@ Go to your browser, and go to the URL `http://localhost:3000`.  Ah, ok, Hello Wo
 
 **This file, `app.js`, is the first file for your final project.**  You'll keep adding on to this file and creating modules that it calls.
 
-Let's explain the code.  You call `express()` to create the app.  You need a request handler for the app if it is to do anything. The `app.get` statement tells the app about a request handler function to call when there is an HTTP get for "/".  You tell the app to start listening for such requests.  By default, it listens on port 3000, but if there is an environment variable set, it will use that value for the port.  The listen() statement might throw an error, typically because there is another process listening on the same port.  Request handlers for an operation on a route are passed two or three parameters.  The req parameter gives the properties of the request.  The res parameter is used to respond to the request.  The other parameter that might be passed is next.  When next is passed, it contains another request handler function.  If the request handler function for the route doesn't take care of the request, it can pass it on to next().
+Let's explain the code.  You call `express()` to create the app.  You need a route handler for the app if it is to do anything. The `app.get` statement tells the app about a route handler function to call when there is an HTTP get for "/".  You tell the app to start listening for such requests.  By default, it listens on port 3000, but if there is an environment variable set, it will use that value for the port.  The listen() statement might throw an error, typically because there is another process listening on the same port.  route handlers for an operation on a route are passed two or three parameters.  The req parameter gives the properties of the request.  The res parameter is used to respond to the request.  The other parameter that might be passed is next.  When next is passed, it contains another route handler function.  If the route handler function for the route doesn't take care of the request, it can pass it on to next().
 
 ### **Be Careful of the Following**
 
-Make sure that your request handlers respond to each request exactly once.  Stop the server with a Ctrl-C.  Make the following change, and then restart the server:
+Make sure that your route handlers respond to each request exactly once.  Stop the server with a Ctrl-C.  Make the following change, and then restart the server:
 
 ```js
 app.get("/", (req, res) => {
@@ -73,7 +75,7 @@ app.get("/", (req, res) => {
 });
 ```
 
-As you can see, an ugly error appears on your browser screen, as well as in your server log.  Every Express application needs an error handler.  An error handler in Express is like a request handler, excapt that it has four parameters instead of three.  They are err, req, res, and next.  Add the following code after your app.get() block:
+As you can see, an ugly error appears on your browser screen, as well as in your server log.  Every Express application needs an error handler.  An error handler in Express is like a route handler, excapt that it has four parameters instead of three.  They are err, req, res, and next.  Add the following code after your app.get() block:
 
 ```js
 app.use((err, req, res, next) => {
@@ -84,7 +86,9 @@ app.use((err, req, res, next) => {
 });
 ```
 
-Then try the same URL again from your browser.  The user sees a terse error message this time, and the server log includes information about what caused the error, some of the useful information in the req object.  Note that the error handler checks to see if a response has already been sent.  The error might have been thrown after a response was sent.  The error handler is configured with `app.use()`, which is what you use for middleware.  Any request: GET, POST, PATCH, and so on, are handled by this middleware, but only if an error is thrown.
+Then try the same URL again from your browser.  The user sees a terse error message this time, and the server log includes information about what caused the error, some of the useful information in the req object.  Note that the error handler checks to see if a response has already been sent.  The error might have been thrown after a response was sent, so if you try to send a response again, it will throw an error -- and an error thrown by an error handler would be unfortunate.  The error handler is configured with `app.use()`, which is what you use for middleware.  Any request: GET, POST, PATCH, and so on, are handled by this middleware, but only if an error is thrown.  The default result code for any send is 200, which means OK, but in this case you are setting it to 500, which means internal server error.  If you need to set the status, you do it before you send the response.
+
+At this point, you can put the app.get() for "/" back what it was.
 
 ### **Nodemon**
 
@@ -94,13 +98,10 @@ Nodemon saves time.  It automatically restarts your app server when you make a c
 npm install nodemon --save-dev
 ```
 
-You are installing it as a development dependency.  You do not want it included in any image deployed to production.  Edit your package.json, so that the scripts stanza looks like this:
+You are installing it as a development dependency.  You do not want it included in any image deployed to production.  Edit your package.json, so that the scripts stanza includes this line:
 
 ```json
-  "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1",
-    "dev": "nodemon app"
-  },
+    "dev": "nodemon app",
 ```
 
 Then run `npm run dev` from the command line.  Your server is running, and you can still stop it with a Ctrl-C, but it restarts automatically when you change your code.
@@ -142,7 +143,7 @@ Within your route handlers, you may have expected or unexpected errors being thr
 
 Try this URL: `http://localhost:3000/nonsense`.  Again you get an error -- a 404. You've seen those.  You need to handle this case.  Create a file `./middleware/not-found.js`.  You need a req and a res, but no next in this case.  You return StatusCodes.NOT_FOUND and the message `You can't do a ${req.method} for ${req.url}.`  Export your function and add the needed require() and app.use() statements in app.js.  Every Express application has a 404 handler like this.  You put it after all the routes, but before the error handler.  Then test it out.
 
-The middleware you have created so far is a little unusual, because in these there is no call to next().  Often middleware is, as you might expect, in the middle.  A middleware function runs for some or all routes before the request handlers for those routes, but then, instead of calling res.send() or an equivalent, it calls next() to pass the work on.  Note: There are two ways to call next().  If you call next() with no parameters, Express calls the next route handler in the chain.  Sometimes the only one left is the not-found handler.  But if you call next(e), e should be an Error object.  In this case the error handler is called, and the error is passed to it.
+The middleware you have created so far is a little unusual, because in these there is no call to next().  Often middleware is, as you might expect, in the middle.  A middleware function runs for some or all routes before the route handlers for those routes, but then, instead of calling res.send() or an equivalent, it calls next() to pass the work on.  Note: There are two ways to call next().  If you call next() with no parameters, Express calls the next route handler in the chain.  Sometimes the only one left is the not-found handler.  But if you call next(e), e should be an Error object.  In this case the error handler is called, and the error is passed to it.
 
 ## **Exiting Cleanly**
 
