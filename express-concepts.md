@@ -76,7 +76,7 @@ try {
 }
 ```
 
-Of course, the actual functions comprising the route handlers and middleware functions are not typically declared inline.  Suppose one set of route handlers deals with customers, via GET/POST/PATCH/PUT/DELETE requests on all paths that start with `/customers`, and suppose you have another set for `/orders`.  Typically you would have a `./controllers` folder, with a `customerController.js` for all the route handlers for customers and an `orderController.js` for all the route handlers for orders.  Typically also, you would have a `./routes` folder, for modules that create express routers.  An express router is a way of associating a collection of routes with a collecton of route handlers.  You'd also have a middleware folder.  In the mainline code, you might have statements like:
+Of course, for a real app, the route handlers and middleware functions would not be declared inline.  Suppose one set of route handlers deals with customers, via GET/POST/PATCH/PUT/DELETE requests on all paths that start with `/customers`, and suppose you have another set for `/orders`.  Typically you would have a `./controllers` folder, with a `customerController.js` for all the route handlers for customers and an `orderController.js` for all the route handlers for orders.  Typically also, you would have a `./routes` folder, for modules that create express routers.  An express router is a way of associating a collection of routes with a collecton of route handlers.  You'd also have a middleware folder.  In the mainline code, you might have statements like:
 
 ```js
 const customerRouter = require("./routes/customer")
